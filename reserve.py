@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import NoSuchElementException
 import json
 from time import sleep
 import sys
@@ -21,9 +22,10 @@ password = user["pwd"]
 zone = user["zone"]
 concert = user["concert"]
 seat = int(user["seats"])
-zone_list = 0
+zone_cnt = 0
 show = int(user["show"]) # 用不上
 next_zone_index = 1
+zone_list = []
 
 
 def setUp():
@@ -86,15 +88,15 @@ def findUrl(msg, link):
 
 def SelectZone(zone=zone):
 
-    count_zone = 0
-    while count_zone == 0:
-        count_zone = driver.execute_script(
+    global zone_cnt
+    while zone_cnt == 0:
+        zone_cnt = driver.execute_script(
             "return document.getElementsByTagName('area').length")
-        print('count_zone'+str(count_zone))
+        print('count_zone'+str(zone_cnt))
         sleep(1)
 
     index = 0
-    for i in range(1, count_zone+1):
+    for i in range(1, zone_cnt+1):
         print('round '+str(i))
         seat = driver.find_element(
             By.XPATH, f'//*[@name="uMap2"]/area[{i}]').get_attribute("href")
@@ -119,14 +121,19 @@ def finZone(msg, link):
 def SelectSeat(number=seat):
 
     global count
-    count_loop = 0
-    while count_loop == 0:
-        count_loop = driver.execute_script(
+    availseats = 0
+    # 这里要改成 找到的全是 unavailable seats
+    loop = 0
+    while availseats == 0:
+        availseats = driver.execute_script(
             "return document.getElementsByClassName('seatuncheck').length")
-        print('count_loop (No. of available seats)='+str(count_loop))
+        print('count_loop (No. of available seats)='+str(availseats))
         sleep(1)
+        loop += 1
+        if loop > 1:
+            return
 
-    for i in range(1, count_loop+1):
+    for i in range(1, availseats+1):
         print('select seat round '+str(i))
         driver.execute_script(
             f"document.getElementsByClassName('seatuncheck')[{i}].click()")
@@ -149,16 +156,40 @@ def SelectSeat(number=seat):
 
 
 def go_to_next_zone():
+    print('going to next zone...')
     global next_zone_index
-    while next_zone_index <= zone_list:
-        driver.find_element_by_partial_link_text("ย้อนกลับ / Back").click()
+    while next_zone_index <= zone_cnt:
+        print('go back')
+        driver.find_element(By.XPATH, '//*[@class="btn-red linear"]').click()
+        # driver.find_element_by_partial_link_text("ย้อนกลับ / Back").click()
         driver.implicitly_wait(40)
-        driver.find_element_by_partial_link_text(
-            "ที่นั่งว่าง / Seats Available").click()
+        print("seats available? ")
+        # driver.find_element_by_partial_link_text(
+        #     "ที่นั่งว่าง / Seats Available").click()
+        element = driver.find_element(By.ID, 'popup-avail')
+        myClick(element)
         driver.implicitly_wait(30)
-        for j in range(2, zone_list+1):
-            amount = driver.find_element_by_xpath(
-                f"//*[@class='container-popup']/table[1]/tbody[1]/tr[{j}]/td[2]").text
+        # for j in range(2, zone_cnt+1):
+        while True:
+            # txt-link txt-green
+            # amount = driver.find_element_by_xpath(
+            #     f"//*[@class='container-popup']/table[1]/tbody[1]/tr[{j}]/td[2]").text
+            # print('table amount=' + str(amount))\
+            try:
+                # driver.find_element(By.XPATH, '//*[@class="txt-link txt-green"]').click()
+                # driver.find_element(By.XPATH, '//*[@class="txt-link txt-blue"]').click()
+                element = driver.find_element(By.XPATH, '//*[@class="txt-link txt-green"]')
+                element.click()
+                SelectSeat()
+            except NoSuchElementException:
+                print('no green btn')
+                # sleep(1)
+                # refresh
+                # btn-red linear w-auto
+                driver.find_element(By.XPATH,
+                    '//*[@class="btn-red linear w-auto"]').click()
+                continue
+            exit()
             i = driver.find_element_by_xpath(
                 f"//*[@class='container-popup']/table[1]/tbody[1]/tr[{j}]/td[1]").text
             if amount != "0" or amount == "Available":
