@@ -1,4 +1,5 @@
 from selenium import webdriver
+# from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
@@ -8,6 +9,8 @@ import sys
 chrome_option = Options()
 chrome_option.add_experimental_option("detach", True)
 driver = webdriver.Chrome()
+# driver = webdriver.Chrome(ChromeDriverManager().install())
+print('chrome loaded')
 base_url = "https://www.thaiticketmajor.com/concert/"
 userdetail_file = "userdetail.json"
 count = 0
@@ -19,16 +22,20 @@ zone = user["zone"]
 concert = user["concert"]
 seat = int(user["seats"])
 zone_list = 0
-show = int(user["show"])
+show = int(user["show"]) # 用不上
 next_zone_index = 1
 
 
 def setUp():
     driver.maximize_window()
+    print('maximized.')
     driver.get(base_url)
+    print('got url.')
     driver.implicitly_wait(100)
+    print('wait terminated.')
 
 
+# 注意 sleep 耗时
 def Login():
     driver.find_element(
         By.XPATH, '//*[@class="btn-signin item d-none d-lg-inline-block"]').click()
@@ -40,11 +47,15 @@ def Login():
     driver.find_element(By.XPATH, '//*[@class="btn-red btn-signin"]').click()
     sleep(2)
     cur_url = driver.current_url
+    print('cur_url: '+ cur_url)
     while cur_url == base_url:
+        # 本页若展示了洪荒剧场演唱会才会 be found，否则失败
+        # 需要去 “检查” 查看 item 的名字
         element = driver.find_element(By.PARTIAL_LINK_TEXT, concert)
 
         myClick(element)
         cur_url = driver.current_url
+    print('current url: '+driver.current_url)
 
 
 def SelectShow():
@@ -52,7 +63,11 @@ def SelectShow():
         By.XPATH, '//*[@class="btn-red btn-buynow btn-item"]')
     myClick(element)
 
+    # 1. verify condition 页面不是总出现
+    # 2. 如果有多个场次，可能会找到错误的 button
+    print('in SelectShow, current_url: '+ driver.current_url)
     result = findUrl("verify_condition", driver.current_url)
+    print(result)
 
     if result:
         element = driver.find_element(By.ID, "rdagree")
@@ -71,19 +86,26 @@ def findUrl(msg, link):
 
 def SelectZone(zone=zone):
 
-    count_zone = driver.execute_script(
-        "return document.getElementsByTagName('area').length")
+    count_zone = 0
+    while count_zone == 0:
+        count_zone = driver.execute_script(
+            "return document.getElementsByTagName('area').length")
+        print('count_zone'+str(count_zone))
+        sleep(1)
 
     index = 0
     for i in range(1, count_zone+1):
+        print('round '+str(i))
         seat = driver.find_element(
-            By.XPATH, f'//*[@name="uMap2Map"]/area[{i}]').get_attribute("href")
+            By.XPATH, f'//*[@name="uMap2"]/area[{i}]').get_attribute("href")
+        print('seat'+seat)
         result = finZone(zone, seat)
         if result:
             index = i
             break
+    print('index='+str(index))
     driver.find_element(
-        By.XPATH, f'//*[@name="uMap2Map"]/area[{index}]').click()
+        By.XPATH, f'//*[@name="uMap2"]/area[{index}]').click()
 
 
 def finZone(msg, link):
@@ -97,18 +119,33 @@ def finZone(msg, link):
 def SelectSeat(number=seat):
 
     global count
-    count_loop = driver.execute_script(
-        "return document.getElementsByClassName('seatuncheck').length")
+    count_loop = 0
+    while count_loop == 0:
+        count_loop = driver.execute_script(
+            "return document.getElementsByClassName('seatuncheck').length")
+        print('count_loop (No. of available seats)='+str(count_loop))
+        sleep(1)
+
     for i in range(1, count_loop+1):
-        print(i)
+        print('select seat round '+str(i))
         driver.execute_script(
             f"document.getElementsByClassName('seatuncheck')[{i}].click()")
         result = driver.execute_script(
             "return document.getElementsByClassName('seatchecked').length")
+        print('result='+str(result))
         if result == number:
+            # driver.find_element(
+            #     By.XPATH, 
+            #     '//*[@class="btn-red btn-main-action w-auto right"]').click()
+            # driver.find_element(By.ID, 'booknow').click()
+            element = driver.find_element(By.ID, 'booknow')
+            myClick(element)
+            count = result
             break
-
-    sleep(100)
+    
+    exit()
+    # sleep(100)
+    # 此函数未改变 count
 
 
 def go_to_next_zone():
