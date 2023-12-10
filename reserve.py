@@ -12,7 +12,7 @@ chrome_option.add_experimental_option("detach", True)
 driver = webdriver.Chrome()
 # driver = webdriver.Chrome(ChromeDriverManager().install())
 print('chrome loaded')
-base_url = "https://www.thaiticketmajor.com/concert/"
+home_url = "https://www.thaiticketmajor.com/concert/"
 userdetail_file = "userdetail.json"
 count = 0
 with open(userdetail_file, 'r') as f:
@@ -31,9 +31,9 @@ zone_list = []
 def setUp():
     driver.maximize_window()
     print('maximized.')
-    driver.get(base_url)
+    driver.get(home_url)
     print('got url.')
-    driver.implicitly_wait(100)
+    driver.implicitly_wait(10)
     print('wait terminated.')
 
 
@@ -50,13 +50,18 @@ def Login():
     sleep(2)
     cur_url = driver.current_url
     print('cur_url: '+ cur_url)
-    while cur_url == base_url:
+    while cur_url == home_url:
         # 本页若展示了洪荒剧场演唱会才会 be found，否则失败
         # 需要去 “检查” 查看 item 的名字
-        element = driver.find_element(By.PARTIAL_LINK_TEXT, concert)
-
-        myClick(element)
+        try:
+            element = driver.find_element(By.PARTIAL_LINK_TEXT, concert)
+            myClick(element)
+        except NoSuchElementException:
+            sleep(1)
+            driver.refresh()
+        
         cur_url = driver.current_url
+        # driver.refresh()
     print('current url: '+driver.current_url)
 
 
@@ -150,7 +155,7 @@ def SelectSeat(number=seat):
             count = result
             break
     
-    exit()
+    # exit()
     # sleep(100)
     # 此函数未改变 count
 
@@ -189,13 +194,13 @@ def go_to_next_zone():
                 driver.find_element(By.XPATH,
                     '//*[@class="btn-red linear w-auto"]').click()
                 continue
-            exit()
-            i = driver.find_element_by_xpath(
-                f"//*[@class='container-popup']/table[1]/tbody[1]/tr[{j}]/td[1]").text
-            if amount != "0" or amount == "Available":
-                SelectZone(i)
-                SelectSeat()
-            next_zone_index += 1
+            # exit()
+            # i = driver.find_element_by_xpath(
+            #     f"//*[@class='container-popup']/table[1]/tbody[1]/tr[{j}]/td[1]").text
+            # if amount != "0" or amount == "Available":
+            #     SelectZone(i)
+            #     SelectSeat()
+            # next_zone_index += 1
     if count == 0:
         print(f"Sorry, this concert don't have any seat for you.")
         sys.exit()
@@ -218,6 +223,7 @@ def myClick(elm):
 setUp()
 Login()
 SelectShow()
+# exit()
 SelectZone(zone)
 SelectSeat()
 if count==0:
